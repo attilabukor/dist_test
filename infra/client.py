@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import with_statement
+
 import contextlib
 import getpass
 import logging
@@ -11,8 +11,8 @@ import os
 import socket
 import sys
 import time
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 try:
   import simplejson as json
 except:
@@ -112,9 +112,9 @@ def urlopen_with_retry(*args, **kwargs):
   while True:
     try:
       if URL_TIMEOUT is None:
-        return urllib2.urlopen(*args, **kwargs)
+        return urllib.request.urlopen(*args, **kwargs)
       else:
-        return urllib2.urlopen(*args, timeout=URL_TIMEOUT, **kwargs)
+        return urllib.request.urlopen(*args, timeout=URL_TIMEOUT, **kwargs)
     except Exception as e:
       if attempt == max_attempts:
           raise
@@ -126,10 +126,10 @@ def urlopen_with_retry(*args, **kwargs):
 
 
 def do_watch_results(job_id):
-  watch_url = make_url("/job?" + urllib.urlencode([("job_id", job_id)]))
+  watch_url = make_url("/job?" + urllib.parse.urlencode([("job_id", job_id)]))
   LOG.info("Watch your results at %s", watch_url)
 
-  url = make_url("/job_status?" + urllib.urlencode([("job_id", job_id)]))
+  url = make_url("/job_status?" + urllib.parse.urlencode([("job_id", job_id)]))
   start_time = time.time()
 
   first = True
@@ -152,12 +152,12 @@ def do_watch_results(job_id):
     time.sleep(5)
 
 def save_last_job_id(job_id):
-  with file(LAST_JOB_PATH, "w") as f:
+  with open(LAST_JOB_PATH, "w") as f:
     f.write(job_id)
 
 def load_last_job_id():
   try:
-    with file(LAST_JOB_PATH, "r") as f:
+    with open(LAST_JOB_PATH, "r") as f:
       return f.read()
   except Exception:
     return None
@@ -169,7 +169,7 @@ def submit_job_json(job_prefix, job_json):
   if job_prefix is not None and len(job_prefix) > 0:
     job_prefix += "."
   job_id = job_prefix + generate_job_id()
-  form_data = urllib.urlencode({'job_id': job_id, 'job_json': job_json})
+  form_data = urllib.parse.urlencode({'job_id': job_id, 'job_json': job_json}).encode("utf-8")
   url = make_url("/submit_job")
   LOG.info("Submitting job to " + url)
   result_str = urlopen_with_retry(url, data=form_data).read()
@@ -207,7 +207,7 @@ def submit(argv):
     p.print_help()
     sys.exit(1)
 
-  job_id = submit_job_json(options.name, file(args[0]).read())
+  job_id = submit_job_json(options.name, open(args[0]).read())
   if options.no_wait:
     sys.exit(0)
   retcode = do_watch_results(job_id)
@@ -222,7 +222,7 @@ def get_job_id_from_args(command, args):
       LOG.info("Using most recently submitted job id: %s" % job_id)
       return job_id
   if len(args) != 2:
-    print >>sys.stderr, "usage: %s %s <job-id>" % (os.path.basename(sys.argv[0]), command)
+    print("usage: %s %s <job-id>" % (os.path.basename(sys.argv[0]), command), file=sys.stderr)
     sys.exit(1)
   return args[1]
 
@@ -239,7 +239,7 @@ def fetch_tasks(job_id, status=None):
   params = {"job_id": job_id}
   if status is not None:
     params["status"] = status
-  url = make_url("/tasks?" + urllib.urlencode(params))
+  url = make_url("/tasks?" + urllib.parse.urlencode(params))
   results_str = urlopen_with_retry(url).read()
   return json.loads(results_str)
 
@@ -336,7 +336,7 @@ def _download(link, path):
     try:
       if not os.path.exists(path):
         LOG.debug("Fetching %s into %s", link, path)
-        urllib.urlretrieve(link, path)
+        urllib.request.urlretrieve(link, path)
         return path
       else:
         LOG.debug("Skipping already downloaded path %s" % path)
@@ -382,7 +382,7 @@ def _extract(path, out_dir):
         for info in myzip.infolist():
             myzip.extract(info, dest_path)
     except Exception as e:
-      print >> sys.stderr, "Error extracting %s: %s" % (path, e)
+      print("Error extracting %s: %s" % (path, e), file=sys.stderr)
       raise
 
   else:
@@ -397,22 +397,22 @@ def _parallel_extract(paths, out_dir):
     try:
       r.get()
     except Exception as e:
-      print >> sys.stderr, "Error during extraction: %s" % e
+      print("Error during extraction: %s" % e, file=sys.stderr)
 
 def cancel_job(argv):
   job_id = get_job_id_from_args("cancel", argv)
-  url = make_url("/cancel_job?" + urllib.urlencode([("job_id", job_id)]))
+  url = make_url("/cancel_job?" + urllib.parse.urlencode([("job_id", job_id)]))
   result_str = urlopen_with_retry(url).read()
   LOG.info("Cancellation: %s" % result_str)
 
 def usage(argv):
-  print >>sys.stderr, "usage: %s <command> [<args>]" % os.path.basename(argv[0])
-  print >>sys.stderr, """Commands:
+  print("usage: %s <command> [<args>]" % os.path.basename(argv[0]), file=sys.stderr)
+  print("""Commands:
     submit  Submit a JSON file listing tasks
     cancel  Cancel a previously submitted job
     watch   Watch an already-submitted job ID
-    fetch   Fetch test logs and artifacts from a previous job"""
-  print >>sys.stderr, "%s <command> --help may provide further info" % argv[0]
+    fetch   Fetch test logs and artifacts from a previous job""", file=sys.stderr)
+  print("%s <command> --help may provide further info" % argv[0], file=sys.stderr)
 
 
 def main(argv):

@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-from __future__ import with_statement
+
 import beanstalkc
 import boto
 import collections
-import cStringIO
+import io
 import errno
 import fcntl
 import glob2
 import logging
 import os
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 import re
 import select
 import shutil
@@ -60,7 +60,7 @@ class RetryCache(object):
     self.max_count = max_count
 
   def get(self, item):
-    if not item in self.cache.keys():
+    if not item in list(self.cache.keys()):
       return None
     count = self.cache[item]
     if count > self.max_count:
@@ -72,7 +72,7 @@ class RetryCache(object):
     return item
 
   def put(self, item):
-    if len(self.cache.keys()) == self.max_size:
+    if len(list(self.cache.keys())) == self.max_size:
       LOG.debug("Cache is at capacity %d, evicting oldest item %s", self.max_size, item)
       self.cache.popitem()
     self.cache[item] = 0
@@ -91,14 +91,14 @@ class Slave(object):
     self.retry_cache = RetryCache()
 
   def _get_exclusive_cache_dir(self):
-    for i in xrange(0, 16):
+    for i in range(0, 16):
       dir = "%s.%d" % (self.config.ISOLATE_CACHE_DIR, i)
       if not os.path.isdir(dir):
         os.makedirs(dir)
       self._lockfile = file(dir + ".lock", "w")
       try:
         fcntl.lockf(self._lockfile.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-      except IOError, e:
+      except IOError as e:
         if e.errno in (errno.EACCES, errno.EAGAIN):
           LOG.info("Another slave already using cache dir %s", dir)
           self._lockfile.close()
@@ -145,7 +145,7 @@ class Slave(object):
       LOG.info("Task %s generated too many bytes of matched artifacts (%d > %d)," \
                + "uploading archive with error message instead.",
               task.task.get_id(), total_size, max_size)
-      archive_buffer = cStringIO.StringIO()
+      archive_buffer = io.StringIO()
       with zipfile.ZipFile(archive_buffer, "w") as myzip:
         myzip.writestr("_ARCHIVE_TOO_BIG_",
                        "Size of matched uncompressed test artifacts exceeded maximum size" \
@@ -153,7 +153,7 @@ class Slave(object):
       return archive_buffer
 
     # Write out the archive
-    archive_buffer = cStringIO.StringIO()
+    archive_buffer = io.StringIO()
     with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as myzip:
       for m in all_matched:
         arcname = os.path.relpath(m, test_dir)
@@ -206,7 +206,7 @@ class Slave(object):
 
   def download_task_files_with_retries(self, task, test_dir):
     """ Calls download_task_files(...) with automatic retries on failure """
-    for rem_attempts in reversed(xrange(NUM_DOWNLOAD_ATTEMPTS_PER_TASK)):
+    for rem_attempts in reversed(range(NUM_DOWNLOAD_ATTEMPTS_PER_TASK)):
       try:
         return self.download_task_files(task, test_dir)
       except:
@@ -237,7 +237,7 @@ class Slave(object):
     try:
       isolated_info = self.download_task_files_with_retries(task, test_dir)
       downloaded = True
-    except Exception, e:
+    except Exception as e:
       # If we fail to download, make sure to mark the task as failed.
       # It's possible that the isolate file itself is invalid, in which
       # case we don't want the task to get "stuck" in the queue forever
@@ -370,7 +370,7 @@ class Slave(object):
     url = self.config.DIST_TEST_MASTER + "/cancel_job?job_id=" + job_id
     LOG.info("Cancelling job %s via url %s" % (job_id, url))
     try:
-        result_str = urllib2.urlopen(url).read()
+        result_str = urllib.request.urlopen(url).read()
         result = json.loads(result_str)
         if result.get('status') != 'SUCCESS':
             sys.stderr.write("Unable to cancel job %s: %s" % (job_id, repr(result)))
@@ -379,9 +379,9 @@ class Slave(object):
 
   def submit_retry_task(self, task):
     task_json = task.task.to_json()
-    form_data = urllib.urlencode({'task_json': task_json})
+    form_data = urllib.parse.urlencode({'task_json': task_json})
     url = self.config.DIST_TEST_MASTER + "/retry_task"
-    result_str = urllib2.urlopen(url, data=form_data).read()
+    result_str = urllib.request.urlopen(url, data=form_data).read()
     result = json.loads(result_str)
     if result.get('status') != 'SUCCESS':
       sys.stderr.write("Unable to submit retry task: %s\n" % repr(result))
@@ -401,7 +401,7 @@ class Slave(object):
         logging.info("waiting for next task...")
         self.is_busy = False
         self.cur_task = self.task_queue.reserve_task()
-      except Exception, e:
+      except Exception as e:
         LOG.warning("Failed to reserve job: %s" % str(e))
         time.sleep(1)
         continue
@@ -420,7 +420,7 @@ class Slave(object):
       try:
         logging.info("task complete")
         self.cur_task.bs_elem.delete()
-      except Exception, e:
+      except Exception as e:
         LOG.warning("Failed to delete job: %s" % str(e))
       finally:
         self.cur_task = None

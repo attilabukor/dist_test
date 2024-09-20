@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import with_statement
+
 import base64
 import cgi
 import cherrypy
@@ -8,12 +8,12 @@ import datetime
 import logging
 import os
 from jinja2 import Template
-import urllib
+import urllib.request, urllib.parse, urllib.error
 try:
   import simplejson as json
 except:
   import json
-import StringIO
+import io
 import gzip
 import netaddr
 import random
@@ -38,7 +38,7 @@ def no_caching(*args, **kwargs):
     'Expires': 'Sat, 01 Jan 1970 00:00:00 GMT'
   }
   # cherrypy 'HeaderMap' doesn't support .extend(), so do it manually
-  for k, v in headers.iteritems():
+  for k, v in headers.items():
     cherrypy.response.headers[k] = v
 
 cherrypy.tools.no_caching = cherrypy.Tool('before_handler', no_caching)
@@ -49,7 +49,7 @@ class Authorize(cherrypy.Tool):
   def __init__(self, allowed_ip_ranges=None, accounts={}):
     self.allowed_ranges = [netaddr.IPNetwork(a) for a in allowed_ip_ranges]
     self.accounts = {}
-    for u, p in accounts.iteritems():
+    for u, p in accounts.items():
       self.accounts[str(u)] = str(p)
 
     self._point = "before_handler"
@@ -126,7 +126,7 @@ class DistTestServer(object):
                         name=task['description'],
                         dur=self._delta_us(task['complete_timestamp'] - task['start_timestamp']),
                         ts=self._delta_us(task['start_timestamp'] - min_st)))
-    trace_gz = StringIO.StringIO()
+    trace_gz = io.StringIO()
     json.dump({"traceEvents": ret},
                     gzip.GzipFile(fileobj=trace_gz, mode="w"))
     trace_gz_b64 = base64.encodestring(trace_gz.getvalue())
@@ -149,7 +149,7 @@ class DistTestServer(object):
       return "Unknown log type"
 
     url = self.results_store.generate_output_link(key)
-    return cgi.escape(urllib.urlopen(url).read(), quote=True)
+    return cgi.escape(urllib.request.urlopen(url).read(), quote=True)
 
   @cherrypy.expose
   @cherrypy.tools.json_out()
@@ -298,14 +298,14 @@ class DistTestServer(object):
     for t in tasks:
       tasks_by_id[t['task_id']].append(t)
     task_groups = {}
-    for task_id, group in tasks_by_id.iteritems():
+    for task_id, group in tasks_by_id.items():
       task_groups[task_id] = dist_test.TaskGroup(group)
 
     result['total_groups'] = len(task_groups)
-    result['flaky_groups'] = len([1 for g in task_groups.values() if g.is_flaky])
-    result['failed_groups'] = len([1 for g in task_groups.values() if g.is_failed])
-    result['succeeded_groups'] = len([1 for g in task_groups.values() if g.is_succeeded])
-    result['finished_groups'] = len([1 for g in task_groups.values() if g.is_finished])
+    result['flaky_groups'] = len([1 for g in list(task_groups.values()) if g.is_flaky])
+    result['failed_groups'] = len([1 for g in list(task_groups.values()) if g.is_failed])
+    result['succeeded_groups'] = len([1 for g in list(task_groups.values()) if g.is_succeeded])
+    result['finished_groups'] = len([1 for g in list(task_groups.values()) if g.is_finished])
 
     # Determine job state: if it's finished, how long its been running
     finish_time = None
@@ -322,7 +322,7 @@ class DistTestServer(object):
     runtime = stop - submit_time
 
     # Compute sum of failed tasks in each flaky group
-    flaky_groups = [g for g in task_groups.values() if g.is_flaky]
+    flaky_groups = [g for g in list(task_groups.values()) if g.is_flaky]
     result['flaky_tasks'] = 0
     for group in flaky_groups:
       flaky_tasks = [t for t in group.tasks if t['status'] != 0]
@@ -388,7 +388,7 @@ class DistTestServer(object):
     job["fail_percent"] = "%.2f%%" % fail_percent
     job["job_id"] = job_id
 
-    print job
+    print(job)
     template = Template("""
     <h1> Job {{ job.job_id | e }} ({{ job_summary.status }}) </h1>
     <div class="progress-bar">
@@ -413,7 +413,7 @@ class DistTestServer(object):
 
   def _generate_view_link(self, task, output):
     return "/view_log?job_id=%s&task_id=%s&attempt=%s&log=%s" % \
-        (urllib.quote(task["job_id"]), urllib.quote(task["task_id"]), urllib.quote(str(task["attempt"])), urllib.quote(output))
+        (urllib.parse.quote(task["job_id"]), urllib.parse.quote(task["task_id"]), urllib.parse.quote(str(task["attempt"])), urllib.parse.quote(output))
 
 
   def _render_tasks(self, tasks, job_summary, task_groups):

@@ -1,8 +1,8 @@
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 import errno
 import logging
 import os
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 class Config(object):
   # S3 settings
@@ -152,9 +152,9 @@ class Config(object):
     """
     if not self.DIST_TEST_USER:
       return
-    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     password_mgr.add_password(None, self.DIST_TEST_MASTER,
         self.DIST_TEST_USER, self.DIST_TEST_PASSWORD)
-    handler = urllib2.HTTPDigestAuthHandler(password_mgr)
-    opener = urllib2.build_opener(handler)
-    urllib2.install_opener(opener)
+    handler = urllib.request.HTTPDigestAuthHandler(password_mgr)
+    opener = urllib.request.build_opener(handler)
+    urllib.request.install_opener(opener)

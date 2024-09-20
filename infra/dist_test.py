@@ -1,11 +1,11 @@
 import beanstalkc
 import boto
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 import errno
 import logging
 import MySQLdb
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import uuid
 try:
   import simplejson as json

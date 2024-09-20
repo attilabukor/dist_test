@@ -4,7 +4,7 @@ import logging
 import re
 import subprocess
 import time
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 DIST_TEST_URL = "http://dist-test.cloudera.org"
 # GCE bills 10-minute minimum, so if we've started instances
@@ -12,7 +12,7 @@ DIST_TEST_URL = "http://dist-test.cloudera.org"
 SHRINK_LAG = 600
 
 def get_stats():
-  page = urllib2.urlopen(DIST_TEST_URL).read()
+  page = urllib.request.urlopen(DIST_TEST_URL).read()
   m = re.search("Queue length: (\d+).*Running: (\d+)", page, re.DOTALL)
   if not m:
     raise Exception("Bad page content")
@@ -51,7 +51,7 @@ def main():
       if new_size != last_size:
         resize(new_size)
         last_size = new_size
-    except Exception, e:
+    except Exception as e:
       logging.warning("had error" + repr(e))
     time.sleep(10)
 

@@ -15,9 +15,9 @@ def set_read_only(path, read_only):
   mode = os.lstat(path).st_mode
   # TODO(maruel): Stop removing GO bits.
   if read_only:
-    mode = mode & 0500
+    mode = mode & 0o500
   else:
-    mode = mode | 0200
+    mode = mode | 0o200
   if hasattr(os, 'lchmod'):
     os.lchmod(path, mode)  # pylint: disable=E1101
   else:
